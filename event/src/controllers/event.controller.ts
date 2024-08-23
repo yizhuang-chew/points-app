@@ -29,16 +29,21 @@ export const post = async (request: Request, response: Response) => {
   // Receive the Pub/Sub message
   const pubSubMessage = request.body.message;
 
+  logger.info('PUB SUB MESSAGE', pubSubMessage)
+
   // For our example we will use the customer id as a var
   // and the query the commercetools sdk with that info
   const decodedData = pubSubMessage.data
     ? Buffer.from(pubSubMessage.data, 'base64').toString().trim()
     : undefined;
 
+    logger.info('Decoded Data', decodedData)
+
+
   if (decodedData) {
     const jsonData = JSON.parse(decodedData);
 
-    customerId = jsonData.customer.id;
+    customerId = jsonData?.product?.id;
   }
 
   if (!customerId) {
