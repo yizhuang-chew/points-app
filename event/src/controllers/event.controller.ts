@@ -1,7 +1,19 @@
 import { Request, Response } from 'express';
+import {
+  HTTP_STATUS_SUCCESS_ACCEPTED,
+  HTTP_STATUS_BAD_REQUEST,
+} from '../constants/http-status.constants';
 import { createApiRoot } from '../client/create.client';
 import CustomError from '../errors/custom.error';
 import { logger } from '../utils/logger.utils';
+import {
+  doValidation,
+  isProductPublishMessage,
+} from '../validators/message.validators';
+import { decodeToJson } from '../utils/decoder.utils';
+
+import { eventData}  from './testData';
+import { productController } from './product.controller';
 
 /**
  * Exposed event POST endpoint.
@@ -12,60 +24,30 @@ import { logger } from '../utils/logger.utils';
  * @returns
  */
 export const post = async (request: Request, response: Response) => {
-  let customerId = undefined;
-
-  // Check request body
-  if (!request.body) {
-    logger.error('Missing request body.');
-    throw new CustomError(400, 'Bad request: No Pub/Sub message was received');
-  }
-
-  // Check if the body comes in a message
-  if (!request.body.message) {
-    logger.error('Missing body message');
-    throw new CustomError(400, 'Bad request: Wrong No Pub/Sub message format');
-  }
-
-  // Receive the Pub/Sub message
-  const pubSubMessage = request.body.message;
-
-  logger.info('PUB SUB MESSAGE', pubSubMessage)
-
-  // For our example we will use the customer id as a var
-  // and the query the commercetools sdk with that info
-  const decodedData = pubSubMessage.data
-    ? Buffer.from(pubSubMessage.data, 'base64').toString().trim()
-    : undefined;
-
-    logger.info('Decoded Data', decodedData)
-
-
-  if (decodedData) {
-    const jsonData = JSON.parse(decodedData);
-
-    customerId = jsonData?.product?.id;
-  }
-
-  if (!customerId) {
-    throw new CustomError(
-      400,
-      'Bad request: No customer id in the Pub/Sub message'
-    );
-  }
-
   try {
-    const customer = await createApiRoot()
-      .customers()
-      .withId({ ID: Buffer.from(customerId).toString() })
-      .get()
-      .execute();
+    // Check request body
+    doValidation(request);
 
-    // Execute the tasks in need
-    logger.info(customer);
+    const encodedMessageBody = request.body.message.data;
+    const messageBody = decodeToJson(encodedMessageBody);
+    // const messageBody = eventData;
+
+    if (isProductPublishMessage(messageBody)) {
+      const sku = messageBody.productProjection.masterVariant.sku;
+      const priceId = messageBody.productProjection.masterVariant.prices[0].id;
+      const pricePoints = messageBody.productProjection.masterVariant.prices[0].custom.fields.pointsPrice;
+      await productController("UpdatePrice", messageBody.resource.id, messageBody.resourceVersion, sku, priceId, pricePoints);
+      
+      // @@TODO FILTER ONLY ACTIVE PRICE
+      //@@ TODO Sub Variants too
+      response.status(HTTP_STATUS_SUCCESS_ACCEPTED).send();
+    }
   } catch (error) {
+    if (error instanceof CustomError) {
+      response.status(error.statusCode as number).send();
+      logger.error(error)
+      return;
+    }
     throw new CustomError(400, `Bad request: ${error}`);
   }
-
-  // Return the response for the client
-  response.status(204).send();
 };
