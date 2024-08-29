@@ -56,8 +56,8 @@ export function doValidation(request: Request) {
     );
   }
   const encodedMessageBody = request.body.message.data;
-  const messageBody = encodedMessageBody;
-  // const messageBody = decodeToJson(encodedMessageBody);
+  // const messageBody = encodedMessageBody;
+  const messageBody = decodeToJson(encodedMessageBody);
 
   // Make sure incoming message contains correct notification type
   if (NOTIFICATION_TYPE_RESOURCE_CREATED === messageBody.notificationType) {
