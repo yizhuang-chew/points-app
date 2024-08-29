@@ -163,8 +163,8 @@ export const productController = async (messageBody: any) => {
   );
   const productId = messageBody?.resource.id;
   const productVersion = messageBody?.resourceVersion;
-  let pricePoints = mainPrice.custom?.fields?.pointsPrice;
-  const originalPricePoints = mainPrice.custom?.fields?.originalPricePoints;
+  const originalPricePoints = mainPrice.custom?.fields?.pricePoints;
+  let pricePoints = originalPricePoints;
   const minimumPoints = mainPrice.custom?.fields?.minimumPoints;
   const bonusPoints = mainPrice.custom?.fields?.bonusPoints;
   const pointsEarnConversion = mainPrice.custom?.fields?.pointsEarnConversion;
@@ -183,7 +183,7 @@ export const productController = async (messageBody: any) => {
     const secondPriceId = secondPrice?.id;
     const secondPriceAmount = secondPrice?.value?.centAmount / 100;
 
-    if(secondPrice?.discounted){
+    if(secondPrice && secondPrice?.discounted){
       pricePoints = secondPrice?.discounted.centAmount / 100;
       logger.info("PRICE POINT CHECK FOR DISCOUNT - PRICE POINTS ALLOCATION", pricePoints)
     }
