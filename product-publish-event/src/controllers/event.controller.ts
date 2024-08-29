@@ -25,12 +25,13 @@ import { productController } from './product.controller';
  */
 export const post = async (request: Request, response: Response) => {
   try {
+    logger.info('request', request);
     // Check request body
     doValidation(request);
 
     const encodedMessageBody = request.body.message.data;
-    const messageBody = encodedMessageBody;
-    // const messageBody = decodeToJson(encodedMessageBody);
+    // const messageBody = encodedMessageBody;
+    const messageBody = decodeToJson(encodedMessageBody);
     // const messageBody = eventData;
     logger.info('messageBody', messageBody);
 
