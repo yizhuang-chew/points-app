@@ -1,8 +1,8 @@
 import CustomError from '../errors/custom.error';
 import {
-  PRODUCT_PUBLISH_SUBSCRIPTION_MESSAGE_TYPES,
+  PRODUCT_PRICE_DISCOUNT_SET_SUBSCRIPTION_MESSAGE_TYPES,
   NOTIFICATION_TYPE_RESOURCE_CREATED,
-  PRODUCT_PUBLISH_SUBSCRIPTION_MESSAGE_TYPE,
+  PRODUCT_PRICE_DISCOUNT_SET_SUBSCRIPTION_MESSAGE_TYPE,
 } from '../constants/constants';
 
 import { decodeToJson } from '../utils/decoder.utils';
@@ -19,18 +19,18 @@ export function isSelfCreatedChange(messageBody: any) {
   return resourceModifiedBy === currentConnectorClientId;
 }
 
-export function isProductPublishSubscriptionMessage(messageBody: any) {
-  return PRODUCT_PUBLISH_SUBSCRIPTION_MESSAGE_TYPES.includes(messageBody.type);
+export function isProductPriceDiscountSetSubscriptionMessage(messageBody: any) {
+  return PRODUCT_PRICE_DISCOUNT_SET_SUBSCRIPTION_MESSAGE_TYPES.includes(messageBody.type);
 }
 
-export function isProductPublishMessage(messageBody: any) {
-  return [PRODUCT_PUBLISH_SUBSCRIPTION_MESSAGE_TYPE].includes(
+export function isProductPriceDiscountSetMessage(messageBody: any) {
+  return [PRODUCT_PRICE_DISCOUNT_SET_SUBSCRIPTION_MESSAGE_TYPE].includes(
     messageBody.type
   );
 }
 
 function isValidMessageType(messageBody: any) {
-  return isProductPublishSubscriptionMessage(messageBody);
+  return isProductPriceDiscountSetSubscriptionMessage(messageBody);
 }
 
 export function doValidation(request: Request) {
@@ -78,7 +78,7 @@ export function doValidation(request: Request) {
   const resourceTypeId = messageBody?.resource?.typeId;
   const resourceId = messageBody?.resource?.id;
 
-  if (isProductPublishSubscriptionMessage(messageBody)) {
+  if (isProductPriceDiscountSetSubscriptionMessage(messageBody)) {
     if (resourceTypeId !== 'product' || !resourceId) {
       throw new CustomError(
         HTTP_STATUS_BAD_REQUEST,

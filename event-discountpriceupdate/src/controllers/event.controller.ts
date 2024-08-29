@@ -8,7 +8,7 @@ import CustomError from '../errors/custom.error';
 import { logger } from '../utils/logger.utils';
 import {
   doValidation,
-  isProductPublishMessage,
+  isProductPriceDiscountSetMessage,
 } from '../validators/message.validators';
 import { decodeToJson } from '../utils/decoder.utils';
 
@@ -34,9 +34,10 @@ export const post = async (request: Request, response: Response) => {
     // const messageBody = eventData;
     logger.info('messageBody', messageBody);
 
-    if (isProductPublishMessage(messageBody)) {
-      logger.info('Product Published');
+    if (isProductPriceDiscountSetMessage(messageBody)) {
       // Logic for updating
+
+      logger.info('isProductPriceDiscountSetMessage');
       productController(messageBody);
 
       // @@ TODO EXCEPTION HANDLING AND MULTIPLE PRICES HANDLING

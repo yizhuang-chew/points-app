@@ -41,59 +41,6 @@ const executeUpdateActions = async (
 };
 
 /**
- * Create the action to update price points
- *
- * @param {string} sku - The SKU of the product variant
- * @param {number} pricePoints - The new price points value
- * @returns {Array<ProductUpdateAction>} - The update action for price points
- */
-const updatePrice = (
-  priceId: string,
-  price: number,
-  priceCurrency: string
-): Array<ProductUpdateAction> => {
-  const actions: ProductUpdateAction[] = [
-    {
-      action: 'changePrice',
-      priceId: priceId, // Specify the SKU to update
-      price: {
-        value: {
-          centAmount: price,
-          currencyCode: priceCurrency,
-        },
-      },
-    },
-  ];
-  return actions;
-};
-
-/**
- * Create the action to update price points
- *
- * @param {string} sku - The SKU of the product variant
- * @param {number} pricePoints - The new price points value
- * @returns {Array<ProductUpdateAction>} - The update action for price points
- */
-const createSecondPrice = (
-  sku: string,
-  price: number
-): Array<ProductUpdateAction> => {
-  const actions: ProductUpdateAction[] = [
-    {
-      action: 'addPrice',
-      sku: sku, // Specify the SKU to update
-      price: {
-        value: {
-          centAmount: price,
-          currencyCode: 'AED',
-        },
-      },
-    },
-  ];
-  return actions;
-};
-
-/**
  * Create the action to publish the product
  *
  * @returns {ProductUpdateAction} - The update action to publish the product
@@ -107,19 +54,9 @@ const createPublishAction = (): Array<ProductUpdateAction> => {
   return actions;
 };
 
-/**
- * Create the action to update price points
- *
- * @param {string} sku - The SKU of the product variant
- * @param {number} pricePoints - The new price points value
- * @returns {Array<ProductUpdateAction>} - The update action for price points
- */
-const createUpdatePricePointsAttributesAction = (
+const updatePricePointsAttributesAction = (
   sku: string,
   pricePoints: number,
-  minimumPoints: number,
-  bonusPoints: number,
-  pointsEarnConversion: number
 ): Array<ProductUpdateAction> => {
   const actions: ProductUpdateAction[] = [
     {
@@ -127,24 +64,6 @@ const createUpdatePricePointsAttributesAction = (
       sku: sku, // Specify the SKU to update
       name: 'pricePoints', // Name of the attribute to update
       value: pricePoints, // New value for the attribute
-    },
-    {
-      action: 'setAttribute',
-      sku: sku, // Specify the SKU to update
-      name: 'minimumPoints', // Name of the attribute to update
-      value: minimumPoints, // New value for the attribute
-    },
-    {
-      action: 'setAttribute',
-      sku: sku, // Specify the SKU to update
-      name: 'bonusPoints', // Name of the attribute to update
-      value: bonusPoints, // New value for the attribute
-    },
-    {
-      action: 'setAttribute',
-      sku: sku, // Specify the SKU to update
-      name: 'pointsEarnConversion', // Name of the attribute to update
-      value: pointsEarnConversion, // New value for the attribute
     },
   ];
   return actions;
@@ -156,22 +75,44 @@ const createUpdatePricePointsAttributesAction = (
 export const productController = async (messageBody: any) => {
   let actions: Array<ProductUpdateAction> = [];
 
-  const sku = messageBody.productProjection.masterVariant.sku;
+  const productId = messageBody?.resource.id;
+  const productVersion = messageBody?.resourceVersion;
+
+  // @@TODO - Handle Multiple SKU
+  // ONLY HANDLE PRICE UPDATES FOR POINTS
+  const updatedPriceRecord = messageBody.updatedPrices.find(
+    (discounted: { value: { currencyCode: string; centAmount: number } }) =>
+      discounted.value.currencyCode === 'AED'
+  );
+  const updatedSku = updatedPriceRecord.sku
+  const updatedPrice = updatedPriceRecord.discounted;
+
+  logger.info('PRODUCT ID', productId);
+  logger.info('PRODUCT VERSION', productVersion);
+  logger.info('UPDATED PRICE RECORD', updatedPriceRecord);
+  logger.info('UPDATED PRICE', updatedPrice);
+
+  const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
+    updatedSku,
+    updatedPrice.value.centAmount * 100,
+  );
+  actions = [...actions, ...updatePricePointsOnMainActions];
+  logger.info("UPDATED PRICE POINTS", updatePricePointsOnMainActions);
+
+  /* const sku = messageBody.productProjection.masterVariant.sku;
   const mainPrice = messageBody.productProjection.masterVariant.prices.find(
     (price: { value: { currencyCode: string; centAmount: number } }) =>
       price.value.currencyCode === 'AUD'
   );
+
   const productId = messageBody?.resource.id;
   const productVersion = messageBody?.resourceVersion;
+  const priceId = mainPrice?.id;
   let pricePoints = mainPrice.custom?.fields?.pointsPrice;
   const originalPricePoints = mainPrice.custom?.fields?.originalPricePoints;
   const minimumPoints = mainPrice.custom?.fields?.minimumPoints;
   const bonusPoints = mainPrice.custom?.fields?.bonusPoints;
   const pointsEarnConversion = mainPrice.custom?.fields?.pointsEarnConversion;
-
-  logger.info("MAIN PRICE", mainPrice)
-  logger.info("Product ID", productId)
-  logger.info("Product Version", productVersion)
 
   // Create or Update Points Price Row
   const secondPrice = messageBody.productProjection.masterVariant.prices.find(
@@ -179,14 +120,8 @@ export const productController = async (messageBody: any) => {
       price.value.currencyCode === 'AED'
   );
   if (secondPrice) {
-    logger.info("Second Price", secondPrice)
     const secondPriceId = secondPrice?.id;
-    const secondPriceAmount = secondPrice?.value?.centAmount / 100;
-
-    if(secondPrice?.discounted){
-      pricePoints = secondPrice?.discounted.centAmount / 100;
-      logger.info("PRICE POINT CHECK FOR DISCOUNT - PRICE POINTS ALLOCATION", pricePoints)
-    }
+    const secondPriceAmount = secondPrice?.centAmount / 100;
 
     if (secondPriceAmount != originalPricePoints) {
       const updateSecondPriceActions = updatePrice(
@@ -195,7 +130,6 @@ export const productController = async (messageBody: any) => {
         'AED'
       );
       actions = [...actions, ...updateSecondPriceActions];
-      logger.info("SECOND PRICE UPDATE ACTION", actions)
     }
   } else {
     const createSecondPriceActions = createSecondPrice(
@@ -203,11 +137,10 @@ export const productController = async (messageBody: any) => {
       originalPricePoints * 100
     );
     actions = [...actions, ...createSecondPriceActions];
-    logger.info("SECOND PRICE CREATE ACTION", actions)
   }
 
   // Update Discounted Price onto Price Custom Field
-  /* if (secondPrice && secondPrice.discounted) {
+  if (secondPrice && secondPrice.discounted) {
     const secondPriceDiscountedAmount = secondPrice?.discounted?.value / 100;
 
     if (secondPriceDiscountedAmount != pricePoints) {
@@ -219,7 +152,7 @@ export const productController = async (messageBody: any) => {
       pricePoints = secondPriceDiscountedAmount;
       actions = [...actions, ...updateMainPricePricePointActions];
     }
-  } */
+  }
 
   // Update Variant Level Attribute
   const updateVariantActions = createUpdatePricePointsAttributesAction(
@@ -228,17 +161,15 @@ export const productController = async (messageBody: any) => {
     minimumPoints,
     bonusPoints,
     pointsEarnConversion
-  );
+  ); 
 
-  actions = [...actions, ...updateVariantActions];
-  logger.info("ATTRIBUTES UPDATE ACTION", updateVariantActions)
+  actions = [...actions, ...updateVariantActions]; */
 
   // Publish
   const publishActions = createPublishAction();
 
   actions = [...actions, ...publishActions];
-
-  logger.info('ACTIONS', actions);
+  logger.info("FINAL ACTIONS", actions)
 
   // Execute the update actions
   return await executeUpdateActions(productId, productVersion, actions);
