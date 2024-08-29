@@ -163,7 +163,7 @@ export const productController = async (messageBody: any) => {
   );
   const productId = messageBody?.resource.id;
   const productVersion = messageBody?.resourceVersion;
-  const originalPricePoints = mainPrice.custom?.fields?.pricePoints;
+  const originalPricePoints = mainPrice.custom?.fields?.pointsPrice;
   let pricePoints = originalPricePoints;
   const minimumPoints = mainPrice.custom?.fields?.minimumPoints;
   const bonusPoints = mainPrice.custom?.fields?.bonusPoints;
