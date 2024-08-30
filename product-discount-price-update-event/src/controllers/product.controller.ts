@@ -47,10 +47,7 @@ const executeUpdateActions = async (
  * @param {string} priceId - The price ID
  * @returns {Promise<any>} - The price record
  */
-const fetchPriceFromProduct = async (
-  productId: string,
-  priceId: string
-): Promise<any> => {
+const fetchPriceRecordsForProduct = async (productId: string): Promise<any> => {
   try {
     const response = await createApiRoot()
       .products()
@@ -59,31 +56,9 @@ const fetchPriceFromProduct = async (
       .execute();
 
     const product: Product = response.body;
-    for (const variant of product.masterData.current.variants) {
-      const price = variant?.prices?.find(
-        (price: { id: string }) => price.id === priceId
-      );
-      if (price) {
-        return { price, sku: variant.sku };
-      }
-    }
 
     // Check master variant as well
-    const masterPrice =
-      product?.masterData?.current?.masterVariant?.prices?.find(
-        (price) => price.id === priceId
-      );
-    if (masterPrice) {
-      return {
-        price: masterPrice,
-        sku: product.masterData.current.masterVariant.sku,
-      };
-    }
-    logger.info('MASTERPRICE', masterPrice);
-
-    throw new Error(
-      `Price with ID ${priceId} not found in product ${productId}`
-    );
+    return product?.masterData?.current?.masterVariant?.prices;
   } catch (error) {
     logger.info('ERROR FETCHING PRODUCT PRICE', error);
     if (error instanceof Error) {
@@ -163,30 +138,43 @@ export const productController = async (messageBody: any) => {
     // Scenario where Discount is removed  }
 
     // Fetch Old and check if it's on points, then update
-    const priceId = updatedPriceRecord?.priceId;
 
-    if (priceId) {
-      const { price, sku } = await fetchPriceFromProduct(productId, priceId);
-      logger.info('OLD PRICE RECORD', price);
+    const priceRecords = await fetchPriceRecordsForProduct(productId); // Assume this function fetches all relevant price records
+    logger.info('PRICE RECORDS', priceRecords);
+    const updatedPriceItems = messageBody?.updatedPrices;
+    logger.info('updatedPriceItems', updatedPriceItems);
+    for (const updatedPriceItem of updatedPriceItems) {
+      logger.info('UPDATED PRICE ITEM', updatedPriceItem);
+      for (const priceRecord of priceRecords) {
+        logger.info('PRICE RECORD', priceRecord);
+        if (updatedPriceItem.id == priceRecord.id) {
+          logger.info('MATCHING');
+          if (priceRecord.value.currencyCode === 'AED') {
+            const pricePoints = priceRecord.value.centAmount / 100;
 
-      if (price && price.value.currencyCode === 'AED') {
-        const pricePoints = price.value.centAmount / 100;
+            const updatePricePointsOnMainActions =
+              updatePricePointsAttributesAction(
+                updatedPriceItem.sku,
+                pricePoints
+              );
+            actions = [...actions, ...updatePricePointsOnMainActions];
 
-        const updatePricePointsOnMainActions =
-          updatePricePointsAttributesAction(sku, pricePoints);
-        actions = [...actions, ...updatePricePointsOnMainActions];
-
-        logger.info('RESTORED PRICE POINTS', updatePricePointsOnMainActions);
+            logger.info(
+              'RESTORED PRICE POINTS',
+              updatePricePointsOnMainActions
+            );
+          }
+        }
       }
-    }
 
-    /* const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
+      /* const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
       updatedSku,
       updatedPrice.value.centAmount / 100
     );
     actions = [...actions, ...updatePricePointsOnMainActions];
 
     logger.info('UPDATED PRICE POINTS', updatePricePointsOnMainActions); */
+    }
   }
 
   // Publish
