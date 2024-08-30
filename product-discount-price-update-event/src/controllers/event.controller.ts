@@ -42,6 +42,8 @@ export const post = async (request: Request, response: Response) => {
       logger.info('isProductPriceDiscountSetMessage');
       productController(messageBody);
 
+      logger.info('Done');
+
       // @@ TODO EXCEPTION HANDLING AND MULTIPLE PRICES HANDLING
       // @@ TODO FILTER ONLY ACTIVE PRICE
       // @@ TODO Sub Variants too

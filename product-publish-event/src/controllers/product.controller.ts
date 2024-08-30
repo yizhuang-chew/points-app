@@ -166,7 +166,7 @@ export const productController = async (messageBody: any) => {
   const originalPricePoints = mainPrice.custom?.fields?.pointsPrice;
   let pricePoints = originalPricePoints;
   const minimumPoints = mainPrice.custom?.fields?.minimumPoints;
-  const bonusPoints = mainPrice.custom?.fields?.bonusPoints;
+  const bonusPoints = mainPrice.custom?.fields?.bonusPoint;
   const pointsEarnConversion = mainPrice.custom?.fields?.pointsEarnConversion;
 
   logger.info("MAIN PRICE", mainPrice)

@@ -78,17 +78,18 @@ export const productController = async (messageBody: any) => {
   const productId = messageBody?.resource.id;
   const productVersion = messageBody?.resourceVersion;
 
+  logger.info('PRODUCT ID', productId);
+  logger.info('PRODUCT VERSION', productVersion);
+
   // @@TODO - Handle Multiple SKU
   // ONLY HANDLE PRICE UPDATES FOR POINTS
-  const updatedPriceRecord = messageBody.updatedPrices.find(
+  const updatedPriceRecord = messageBody?.updatedPrices?.find(
     (discounted: { value: { currencyCode: string; centAmount: number } }) =>
       discounted.value.currencyCode === 'AED'
   );
   const updatedSku = updatedPriceRecord.sku
   const updatedPrice = updatedPriceRecord.discounted;
 
-  logger.info('PRODUCT ID', productId);
-  logger.info('PRODUCT VERSION', productVersion);
   logger.info('UPDATED PRICE RECORD', updatedPriceRecord);
   logger.info('UPDATED PRICE', updatedPrice);
 
