@@ -86,10 +86,12 @@ const fetchPriceFromProduct = async (
     );
   } catch (error) {
     logger.info('ERROR FETCHING PRODUCT PRICE', error);
-    throw new CustomError(
-      400,
-      `Error fetching product or price: ${error.message}`
-    );
+    if (error instanceof Error) {
+      throw new CustomError(
+        400,
+        `Error fetching product or price: ${error?.message}`
+      );
+    }
   }
 };
 
