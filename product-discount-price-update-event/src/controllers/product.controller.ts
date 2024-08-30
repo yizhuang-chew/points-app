@@ -115,8 +115,8 @@ export const productController = async (messageBody: any) => {
   // ONLY HANDLE PRICE UPDATES FOR POINTS
   const updatedPriceRecord = messageBody?.updatedPrices?.find(
     (price: {
-      discounted: { value: { currencyCode: string; centAmount: number } };
-    }) => price.discounted.value.currencyCode === 'AED'
+      discounted?: { value?: { currencyCode?: string; centAmount?: number } };
+    }) => price?.discounted?.value?.currencyCode === 'AED'
   );
 
   // New Discount
@@ -138,6 +138,7 @@ export const productController = async (messageBody: any) => {
     // Scenario where Discount is removed  }
 
     // Fetch Old and check if it's on points, then update
+    logger.info("SCENARIO WHERE DISCOUNT IS REMOVED");
 
     const priceRecords = await fetchPriceRecordsForProduct(productId); // Assume this function fetches all relevant price records
     logger.info('PRICE RECORDS', priceRecords);
