@@ -95,7 +95,7 @@ export const productController = async (messageBody: any) => {
 
   const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
     updatedSku,
-    updatedPrice.value.centAmount * 100,
+    updatedPrice.value.centAmount/ 100,
   );
   actions = [...actions, ...updatePricePointsOnMainActions];
   logger.info("UPDATED PRICE POINTS", updatePricePointsOnMainActions);
