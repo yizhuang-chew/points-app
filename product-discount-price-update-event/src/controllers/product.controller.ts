@@ -1,4 +1,4 @@
-import { ProductUpdateAction } from '@commercetools/platform-sdk';
+import { Product, ProductUpdateAction } from '@commercetools/platform-sdk';
 import { createApiRoot } from '../client/create.client';
 import CustomError from '../errors/custom.error';
 import { logger } from '../utils/logger.utils';
@@ -41,6 +41,59 @@ const executeUpdateActions = async (
 };
 
 /**
+ * Fetch the product by ID and retrieve the price by priceId
+ *
+ * @param {string} productId - The product ID
+ * @param {string} priceId - The price ID
+ * @returns {Promise<any>} - The price record
+ */
+const fetchPriceFromProduct = async (
+  productId: string,
+  priceId: string
+): Promise<any> => {
+  try {
+    const response = await createApiRoot()
+      .products()
+      .withId({ ID: productId })
+      .get()
+      .execute();
+
+    const product: Product = response.body;
+    for (const variant of product.masterData.current.variants) {
+      const price = variant?.prices?.find(
+        (price: { id: string }) => price.id === priceId
+      );
+      if (price) {
+        return { price, sku: variant.sku };
+      }
+    }
+
+    // Check master variant as well
+    const masterPrice =
+      product?.masterData?.current?.masterVariant?.prices?.find(
+        (price) => price.id === priceId
+      );
+    if (masterPrice) {
+      return {
+        price: masterPrice,
+        sku: product.masterData.current.masterVariant.sku,
+      };
+    }
+    logger.info('MASTERPRICE', masterPrice);
+
+    throw new Error(
+      `Price with ID ${priceId} not found in product ${productId}`
+    );
+  } catch (error) {
+    logger.info('ERROR FETCHING PRODUCT PRICE', error);
+    throw new CustomError(
+      400,
+      `Error fetching product or price: ${error.message}`
+    );
+  }
+};
+
+/**
  * Create the action to publish the product
  *
  * @returns {ProductUpdateAction} - The update action to publish the product
@@ -56,7 +109,7 @@ const createPublishAction = (): Array<ProductUpdateAction> => {
 
 const updatePricePointsAttributesAction = (
   sku: string,
-  pricePoints: number,
+  pricePoints: number
 ): Array<ProductUpdateAction> => {
   const actions: ProductUpdateAction[] = [
     {
@@ -84,93 +137,61 @@ export const productController = async (messageBody: any) => {
   // @@TODO - Handle Multiple SKU
   // ONLY HANDLE PRICE UPDATES FOR POINTS
   const updatedPriceRecord = messageBody?.updatedPrices?.find(
-    (price: {discounted: { value: { currencyCode: string; centAmount: number } }}) =>
-      price.discounted.value.currencyCode === 'AED'
-  );
-  const updatedSku = updatedPriceRecord.sku
-  const updatedPrice = updatedPriceRecord.discounted;
-
-  logger.info('UPDATED PRICE RECORD', updatedPriceRecord);
-  logger.info('UPDATED PRICE', updatedPrice);
-
-  const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
-    updatedSku,
-    updatedPrice.value.centAmount/ 100,
-  );
-  actions = [...actions, ...updatePricePointsOnMainActions];
-  logger.info("UPDATED PRICE POINTS", updatePricePointsOnMainActions);
-
-  /* const sku = messageBody.productProjection.masterVariant.sku;
-  const mainPrice = messageBody.productProjection.masterVariant.prices.find(
-    (price: { value: { currencyCode: string; centAmount: number } }) =>
-      price.value.currencyCode === 'AUD'
+    (price: {
+      discounted: { value: { currencyCode: string; centAmount: number } };
+    }) => price.discounted.value.currencyCode === 'AED'
   );
 
-  const productId = messageBody?.resource.id;
-  const productVersion = messageBody?.resourceVersion;
-  const priceId = mainPrice?.id;
-  let pricePoints = mainPrice.custom?.fields?.pointsPrice;
-  const originalPricePoints = mainPrice.custom?.fields?.originalPricePoints;
-  const minimumPoints = mainPrice.custom?.fields?.minimumPoints;
-  const bonusPoints = mainPrice.custom?.fields?.bonusPoints;
-  const pointsEarnConversion = mainPrice.custom?.fields?.pointsEarnConversion;
+  // New Discount
+  if (updatedPriceRecord) {
+    const updatedSku = updatedPriceRecord.sku;
+    const updatedPrice = updatedPriceRecord.discounted;
 
-  // Create or Update Points Price Row
-  const secondPrice = messageBody.productProjection.masterVariant.prices.find(
-    (price: { value: { currencyCode: string; centAmount: number } }) =>
-      price.value.currencyCode === 'AED'
-  );
-  if (secondPrice) {
-    const secondPriceId = secondPrice?.id;
-    const secondPriceAmount = secondPrice?.centAmount / 100;
+    logger.info('UPDATED PRICE RECORD', updatedPriceRecord);
+    logger.info('UPDATED PRICE', updatedPrice);
 
-    if (secondPriceAmount != originalPricePoints) {
-      const updateSecondPriceActions = updatePrice(
-        secondPriceId,
-        originalPricePoints * 100,
-        'AED'
-      );
-      actions = [...actions, ...updateSecondPriceActions];
-    }
-  } else {
-    const createSecondPriceActions = createSecondPrice(
-      sku,
-      originalPricePoints * 100
+    const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
+      updatedSku,
+      updatedPrice.value.centAmount / 100
     );
-    actions = [...actions, ...createSecondPriceActions];
-  }
+    actions = [...actions, ...updatePricePointsOnMainActions];
 
-  // Update Discounted Price onto Price Custom Field
-  if (secondPrice && secondPrice.discounted) {
-    const secondPriceDiscountedAmount = secondPrice?.discounted?.value / 100;
+    logger.info('UPDATED PRICE POINTS', updatePricePointsOnMainActions);
+  } else {
+    // Scenario where Discount is removed  }
 
-    if (secondPriceDiscountedAmount != pricePoints) {
-      const updateMainPricePricePointActions = updatePrice(
-        priceId,
-        secondPriceDiscountedAmount,
-        'AUD'
-      );
-      pricePoints = secondPriceDiscountedAmount;
-      actions = [...actions, ...updateMainPricePricePointActions];
+    // Fetch Old and check if it's on points, then update
+    const priceId = updatedPriceRecord?.priceId;
+
+    if (priceId) {
+      const { price, sku } = await fetchPriceFromProduct(productId, priceId);
+      logger.info('OLD PRICE RECORD', price);
+
+      if (price && price.value.currencyCode === 'AED') {
+        const pricePoints = price.value.centAmount / 100;
+
+        const updatePricePointsOnMainActions =
+          updatePricePointsAttributesAction(sku, pricePoints);
+        actions = [...actions, ...updatePricePointsOnMainActions];
+
+        logger.info('RESTORED PRICE POINTS', updatePricePointsOnMainActions);
+      }
     }
+
+    /* const updatePricePointsOnMainActions = updatePricePointsAttributesAction(
+      updatedSku,
+      updatedPrice.value.centAmount / 100
+    );
+    actions = [...actions, ...updatePricePointsOnMainActions];
+
+    logger.info('UPDATED PRICE POINTS', updatePricePointsOnMainActions); */
   }
-
-  // Update Variant Level Attribute
-  const updateVariantActions = createUpdatePricePointsAttributesAction(
-    sku,
-    pricePoints,
-    minimumPoints,
-    bonusPoints,
-    pointsEarnConversion
-  ); 
-
-  actions = [...actions, ...updateVariantActions]; */
 
   // Publish
   const publishActions = createPublishAction();
 
   actions = [...actions, ...publishActions];
-  logger.info("FINAL ACTIONS", actions)
+  logger.info('FINAL ACTIONS', actions);
 
   // Execute the update actions
   return await executeUpdateActions(productId, productVersion, actions);
