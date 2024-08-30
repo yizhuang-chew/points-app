@@ -148,7 +148,7 @@ export const productController = async (messageBody: any) => {
       logger.info('UPDATED PRICE ITEM', updatedPriceItem);
       for (const priceRecord of priceRecords) {
         logger.info('PRICE RECORD', priceRecord);
-        if (updatedPriceItem.id == priceRecord.id) {
+        if (updatedPriceItem.priceId == priceRecord.id) {
           logger.info('MATCHING');
           if (priceRecord.value.currencyCode === 'AED') {
             const pricePoints = priceRecord.value.centAmount / 100;
