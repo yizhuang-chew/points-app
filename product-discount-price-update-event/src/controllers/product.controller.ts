@@ -75,17 +75,17 @@ const updatePricePointsAttributesAction = (
 export const productController = async (messageBody: any) => {
   let actions: Array<ProductUpdateAction> = [];
 
+  logger.info('PRODUCT CONTROLLER MESSAGE', messageBody);
   const productId = messageBody?.resource.id;
   const productVersion = messageBody?.resourceVersion;
 
-  logger.info('PRODUCT ID', productId);
-  logger.info('PRODUCT VERSION', productVersion);
+  logger.info('UPDATED PRICES', messageBody?.updatedPrices);
 
   // @@TODO - Handle Multiple SKU
   // ONLY HANDLE PRICE UPDATES FOR POINTS
   const updatedPriceRecord = messageBody?.updatedPrices?.find(
-    (discounted: { value: { currencyCode: string; centAmount: number } }) =>
-      discounted.value.currencyCode === 'AED'
+    (price: {discounted: { value: { currencyCode: string; centAmount: number } }}) =>
+      price.discounted.value.currencyCode === 'AED'
   );
   const updatedSku = updatedPriceRecord.sku
   const updatedPrice = updatedPriceRecord.discounted;
